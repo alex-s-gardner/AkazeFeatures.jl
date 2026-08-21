@@ -36,13 +36,15 @@ end
 
 select_diffusivity(diffusivity::DIFFUSIVITY_TYPE) =
     if diffusivity == PM_G1
-        pm_g1_diffusivity
+        pm_g1_diffusivity!
     elseif diffusivity == PM_G2
-        pm_g2_diffusivity
+        pm_g2_diffusivity!
     elseif diffusivity == WEICKERT
-        weickert_diffusivity
+        weickert_diffusivity!
     elseif diffusivity == CHARBONNIER
-        charbonnier_diffusivity
+        charbonnier_diffusivity!
+    else
+        throw(ArgumentError("unknown diffusivity $diffusivity"))
     end
 
 
@@ -118,10 +120,13 @@ end
     Lflow::Matrix{Float64}                ###< Diffusivity image
     Lt::Matrix{Float64}                   ###< Evolution image
     Lsmooth::Matrix{Float64}              ###< Smoothed image
-    Lstep::Matrix{Float64}                ###< Evolution step update
     Ldet::Matrix{Float64}                 ###< Detector response
+    ## Scratch space, not results. Each is reused across calls within one level
+    ## and carries nothing between them, so anything that processes levels
+    ## concurrently needs its own buffers rather than these.
     dx::Matrix{Float64}                 ###< used in nld_step_scalar
     dy::Matrix{Float64}                 ###< used in nld_step_scalar
+    scratch::Matrix{Float64}            ###< intermediate pass of dilated_imfilter!
     etime::Float32 = 0f0      ###< Evolution time
     esigma::Float32 = 0f0     ###< Evolution sigma. For linear diffusion t = sigma^2 / 2
     octave::UInt32 = 0x0      ###< Image octave
@@ -139,10 +144,10 @@ construct_tevolution(; image_width::Int64, image_height::Int64, esigma, octave, 
         Lflow = zeros(image_height, image_width),
         Lt = zeros(image_height, image_width),
         Lsmooth = zeros(image_height, image_width),
-        Lstep = zeros(image_height, image_width),
         Ldet = zeros(image_height, image_width),
         dx = zeros(image_height, image_width+2),
         dy = zeros(image_height+2, image_width),
+        scratch = zeros(image_height, image_width),
         esigma = esigma,
         sigma_size = round(Int, esigma),
         etime = 0.5f0 * (esigma * esigma),

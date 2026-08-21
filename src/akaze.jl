@@ -1,16 +1,9 @@
-using Images: Kernel, KernelFactors, centered
+using Images: KernelFactors
 
 using ImageTransformations: imresize
-using ImageFiltering: imfilter!, kernelfactors
+using ImageFiltering: imfilter!
 
 using StaticArrays: SVector
-
-## Scharr filter scaled by 32.0
-s32f1 = centered(SVector(3.0, 10.0, 3.0)*2)
-s32f2 = centered(SVector(-1.0, 0.0, 1.0)/2)
-fy = kernelfactors((s32f2, s32f1))
-fx = kernelfactors((s32f1, s32f2))
-
 
 ################################################################
 struct AKAZE
@@ -103,13 +96,11 @@ function Create_Nonlinear_Scale_Space(akaze, img)
 
     t1 = time_ns()
 
-    ## Copy the original image to the first level of the evolution
+    ## Copy the original image to the first level of the evolution.
+    ## Lx and Ly are not seeded here: `Compute_Multiscale_Derivatives` recomputes
+    ## them from Lsmooth for every level, including this one, before any read.
     imfilter!(akaze.evolution_[1].Lt, img, AkazeGauss(akaze.options_.soffset))
     akaze.evolution_[1].Lsmooth .= akaze.evolution_[1].Lt
-    imfilter!(akaze.evolution_[1].Lx, akaze.evolution_[1].Lsmooth, fx)
-    imfilter!(akaze.evolution_[1].Lx, akaze.evolution_[1].Lx, AkazeGauss(akaze.options_.soffset))
-    imfilter!(akaze.evolution_[1].Ly, akaze.evolution_[1].Lsmooth, fy)
-    imfilter!(akaze.evolution_[1].Ly, akaze.evolution_[1].Ly, AkazeGauss(akaze.options_.soffset))
 
     ## First compute the kcontrast factor
     # akaze.options_.kcontrast =
@@ -122,6 +113,8 @@ function Create_Nonlinear_Scale_Space(akaze, img)
 
     t2 = time_ns()
     akaze.timing_.kcontrast = t2 - t1
+
+    calculate_diffusivity! = select_diffusivity(akaze.options_.diffusivity)
 
     ## Now generate the rest of evolution levels
     for i = 2:length(akaze.evolution_)
@@ -136,12 +129,13 @@ function Create_Nonlinear_Scale_Space(akaze, img)
         imfilter!(akaze.evolution_[i].Lsmooth, akaze.evolution_[i].Lt, AkazeGauss(1.0))
 
         ## Compute the Gaussian derivatives Lx and Ly
-        imfilter!(akaze.evolution_[i].Lx, akaze.evolution_[i].Lsmooth, fx)
-        imfilter!(akaze.evolution_[i].Ly, akaze.evolution_[i].Lsmooth, fy)
+        dilated_imfilter!(akaze.evolution_[i].Lx, akaze.evolution_[i].Lsmooth,
+                          scharr32_x, akaze.evolution_[i].scratch)
+        dilated_imfilter!(akaze.evolution_[i].Ly, akaze.evolution_[i].Lsmooth,
+                          scharr32_y, akaze.evolution_[i].scratch)
 
-        calculate_diffusivity = select_diffusivity(akaze.options_.diffusivity)
-
-        akaze.evolution_[i].Lflow .= calculate_diffusivity(
+        calculate_diffusivity!(
+            akaze.evolution_[i].Lflow,
             akaze.evolution_[i].Lx,
             akaze.evolution_[i].Ly,
             # akaze.options_.kcontrast,
@@ -194,11 +188,11 @@ function Compute_Multiscale_Derivatives(akaze::AKAZE)
         sigma_size_ = round(Int, ev.esigma * akaze.options_.derivative_factor / ratio)
         fx, fy = compute_derivative_kernels(sigma_size_)
 
-        imfilter!(ev.Lx, ev.Lsmooth, fx)
-        imfilter!(ev.Ly, ev.Lsmooth, fy)
-        imfilter!(ev.Lxx, ev.Lx, fx)
-        imfilter!(ev.Lxy, ev.Lx, fy)
-        imfilter!(ev.Lyy, ev.Ly, fy)
+        dilated_imfilter!(ev.Lx, ev.Lsmooth, fx, ev.scratch)
+        dilated_imfilter!(ev.Ly, ev.Lsmooth, fy, ev.scratch)
+        dilated_imfilter!(ev.Lxx, ev.Lx, fx, ev.scratch)
+        dilated_imfilter!(ev.Lxy, ev.Lx, fy, ev.scratch)
+        dilated_imfilter!(ev.Lyy, ev.Ly, fy, ev.scratch)
     end
 
     t2 = time_ns()

@@ -140,12 +140,12 @@ function Get_MLDB_Full_Descriptor(akaze::AKAZE, kpt::KeyPoint, desc)
     si = sin(kpt.angle)
     pattern_size = akaze.options_.descriptor_pattern_size
 
-    dpos = Ref(0)
+    dpos = 0
     for lvl in 0:2
         val_count = (lvl + 2) * (lvl + 2)
         sample_step = ceil(Int, pattern_size * size_mult[1+lvl])
         MLDB_Fill_Values(akaze, values, sample_step, kpt.class_id, xf, yf, co, si, scale)
-        MLDB_Binary_Comparisons(akaze, values, desc, val_count, dpos)
+        dpos = MLDB_Binary_Comparisons(akaze, values, desc, val_count, dpos)
     end
 end
 
@@ -163,12 +163,12 @@ function Get_Upright_MLDB_Full_Descriptor(akaze::AKAZE, kpt::KeyPoint, desc)
     yf = kpt.pt.y / ratio
     pattern_size = akaze.options_.descriptor_pattern_size
 
-    dpos = Ref(0)
+    dpos = 0
     for lvl in 0:2
         val_count = (lvl + 2) * (lvl + 2)
         sample_step = ceil(Int, pattern_size * size_mult[1+lvl])
         MLDB_Fill_Upright_Values(akaze, values, sample_step, kpt.class_id, xf, yf, scale)
-        MLDB_Binary_Comparisons(akaze, values, desc, val_count, dpos)
+        dpos = MLDB_Binary_Comparisons(akaze, values, desc, val_count, dpos)
     end
 end
 
@@ -305,8 +305,10 @@ function MLDB_Fill_Upright_Values(akaze::AKAZE, values, sample_step::Int, level:
 end
 
 ################################################################
+## Writes the pairwise comparisons of `values` into `desc` starting at bit
+## `dpos`, and returns the bit position just past the ones written.
 function MLDB_Binary_Comparisons(akaze::AKAZE, values, desc,
-                                 count::Int, dpos::Ref{Int})
+                                 count::Int, dpos::Int)
 
     nr_channels = akaze.options_.descriptor_channels
 
@@ -315,11 +317,12 @@ function MLDB_Binary_Comparisons(akaze::AKAZE, values, desc,
             ival = values[1 + nr_channels * i + pos]
             for j in i + 1:count-1
                 res = ival > values[1 + nr_channels * j + pos]
-                desc[1+dpos[] >> 3] |= (res << (dpos[] & 7))
-                dpos[]+=1
+                desc[1 + dpos >> 3] |= (res << (dpos & 7))
+                dpos += 1
             end
         end
     end
+    dpos
 end
 
 # /* ************************************************************************* */
