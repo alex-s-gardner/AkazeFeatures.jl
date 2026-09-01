@@ -23,6 +23,7 @@ include("akaze-config.jl")
 include("akaze.jl")
 include("akaze-descriptor.jl")
 include("fed.jl")
+include("dilated-filter.jl")
 include("nonlinear-diffusion.jl")
 include("utils.jl")
 

@@ -126,7 +126,7 @@ end
     ## concurrently needs its own buffers rather than these.
     dx::Matrix{Float64}                 ###< used in nld_step_scalar
     dy::Matrix{Float64}                 ###< used in nld_step_scalar
-    scratch::Matrix{Float64}            ###< intermediate pass of dilated_imfilter!
+    scratch::Matrix{Float64}            ###< intermediate pass of imfilter! with a DilatedSeparable
     etime::Float32 = 0f0      ###< Evolution time
     esigma::Float32 = 0f0     ###< Evolution sigma. For linear diffusion t = sigma^2 / 2
     octave::UInt32 = 0x0      ###< Image octave

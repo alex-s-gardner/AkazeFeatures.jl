@@ -97,8 +97,6 @@ function Create_Nonlinear_Scale_Space(akaze, img)
     t1 = time_ns()
 
     ## Copy the original image to the first level of the evolution.
-    ## Lx and Ly are not seeded here: `Compute_Multiscale_Derivatives` recomputes
-    ## them from Lsmooth for every level, including this one, before any read.
     imfilter!(akaze.evolution_[1].Lt, img, AkazeGauss(akaze.options_.soffset))
     akaze.evolution_[1].Lsmooth .= akaze.evolution_[1].Lt
 
@@ -129,10 +127,10 @@ function Create_Nonlinear_Scale_Space(akaze, img)
         imfilter!(akaze.evolution_[i].Lsmooth, akaze.evolution_[i].Lt, AkazeGauss(1.0))
 
         ## Compute the Gaussian derivatives Lx and Ly
-        dilated_imfilter!(akaze.evolution_[i].Lx, akaze.evolution_[i].Lsmooth,
-                          scharr32_x, akaze.evolution_[i].scratch)
-        dilated_imfilter!(akaze.evolution_[i].Ly, akaze.evolution_[i].Lsmooth,
-                          scharr32_y, akaze.evolution_[i].scratch)
+        imfilter!(akaze.evolution_[i].Lx, akaze.evolution_[i].Lsmooth,
+                  scharr32_x, scratch = akaze.evolution_[i].scratch)
+        imfilter!(akaze.evolution_[i].Ly, akaze.evolution_[i].Lsmooth,
+                  scharr32_y, scratch = akaze.evolution_[i].scratch)
 
         calculate_diffusivity!(
             akaze.evolution_[i].Lflow,
@@ -188,11 +186,11 @@ function Compute_Multiscale_Derivatives(akaze::AKAZE)
         sigma_size_ = round(Int, ev.esigma * akaze.options_.derivative_factor / ratio)
         fx, fy = compute_derivative_kernels(sigma_size_)
 
-        dilated_imfilter!(ev.Lx, ev.Lsmooth, fx, ev.scratch)
-        dilated_imfilter!(ev.Ly, ev.Lsmooth, fy, ev.scratch)
-        dilated_imfilter!(ev.Lxx, ev.Lx, fx, ev.scratch)
-        dilated_imfilter!(ev.Lxy, ev.Lx, fy, ev.scratch)
-        dilated_imfilter!(ev.Lyy, ev.Ly, fy, ev.scratch)
+        imfilter!(ev.Lx, ev.Lsmooth, fx, scratch = ev.scratch)
+        imfilter!(ev.Ly, ev.Lsmooth, fy, scratch = ev.scratch)
+        imfilter!(ev.Lxx, ev.Lx, fx, scratch = ev.scratch)
+        imfilter!(ev.Lxy, ev.Lx, fy, scratch = ev.scratch)
+        imfilter!(ev.Lyy, ev.Ly, fy, scratch = ev.scratch)
     end
 
     t2 = time_ns()

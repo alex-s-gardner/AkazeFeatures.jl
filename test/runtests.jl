@@ -2,6 +2,10 @@ using Test
 using JLD2
 using Statistics: median, quantile
 using AkazeFeatures
+using ImageFiltering: centered, imfilter, imfilter!, kernelfactors
+using StaticArrays: SVector
+
+include("dilated-filter.jl")
 
 refdata = load("original-akaze-pirate.jld2")
 
